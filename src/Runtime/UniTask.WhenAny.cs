@@ -141,7 +141,7 @@ namespace Cysharp.Threading.Tasks
 
                 if (Interlocked.Increment(ref self.completedCount) == 1)
                 {
-                    self.core.TrySetResult((false, default));
+                    self.core.TrySetResult((false, default!));
                 }
             }
 
@@ -356,4 +356,3 @@ namespace Cysharp.Threading.Tasks
         }
     }
 }
-

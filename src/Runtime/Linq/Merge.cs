@@ -68,7 +68,7 @@ namespace Cysharp.Threading.Tasks.Linq
             readonly int length;
             readonly IUniTaskAsyncEnumerator<T>[] enumerators;
             readonly MergeSourceState[] states;
-            readonly Queue<(T, Exception, bool)> queuedResult = new Queue<(T, Exception, bool)>();
+            readonly Queue<(T, Exception?, bool)> queuedResult = new Queue<(T, Exception?, bool)>();
             readonly CancellationToken cancellationToken;
 
             int moveNextCompleted;
@@ -96,7 +96,7 @@ namespace Cysharp.Threading.Tasks.Linq
 
                 if (HasQueuedResult() && Interlocked.CompareExchange(ref moveNextCompleted, 1, 0) == 0)
                 {
-                    (T, Exception, bool) value;
+                    (T, Exception?, bool) value;
                     lock (states)
                     {
                         value = queuedResult.Dequeue();
@@ -179,7 +179,7 @@ namespace Cysharp.Threading.Tasks.Linq
                     {
                         lock (states)
                         {
-                            queuedResult.Enqueue((default, ex, default));
+                            queuedResult.Enqueue((default!, ex, default));
                         }
                     }
                     return;

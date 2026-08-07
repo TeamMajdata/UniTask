@@ -498,7 +498,7 @@ namespace Cysharp.Threading.Tasks
             {
                 if (source.GetStatus(token) == UniTaskStatus.Canceled)
                 {
-                    return (true, default);
+                    return (true, default!);
                 }
 
                 var result = source.GetResult(token);
@@ -708,4 +708,3 @@ namespace Cysharp.Threading.Tasks
         }
     }
 }
-
