@@ -519,7 +519,7 @@ namespace Cysharp.Threading.Tasks
             {
                 delayCancellationTokenSource.Cancel();
                 delayCancellationTokenSource.Dispose();
-                return (true, default);
+                return (true, default!);
             }
 
             // timeout
@@ -531,7 +531,7 @@ namespace Cysharp.Threading.Tasks
                     taskCancellationTokenSource.Dispose();
                 }
 
-                return (true, default);
+                return (true, default!);
             }
             else
             {
@@ -541,7 +541,7 @@ namespace Cysharp.Threading.Tasks
 
             if (taskResult.IsCanceled)
             {
-                return (true, default);
+                return (true, default!);
             }
 
             return (false, taskResult.Result);
@@ -920,4 +920,3 @@ namespace Cysharp.Threading.Tasks
 #endif
     }
 }
-
