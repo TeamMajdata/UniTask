@@ -1,0 +1,66 @@
+<Project>
+  <Import Project="UniTask.Unity.local.props" Condition="Exists('UniTask.Unity.local.props')" />
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>8.0</LangVersion>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- Unity assemblies and the existing InternalsVisibleTo declarations are unsigned. -->
+    <SignAssembly>false</SignAssembly>
+    <IsPackable>false</IsPackable>
+    <UnityData Condition="'$(UnityData)' == ''">$(UNITY_EDITOR_DATA)</UnityData>
+    <!-- Use a numeric version without the Unity release suffix, e.g. 6000.3.17. -->
+    <UnityVersion Condition="'$(UnityVersion)' == ''">6000.3.17</UnityVersion>
+    <UniTaskBuildForEditor Condition="'$(UniTaskBuildForEditor)' == ''">true</UniTaskBuildForEditor>
+    <UniTaskUnityTarget Condition="'$(UniTaskBuildForEditor)' == 'true'">Editor</UniTaskUnityTarget>
+    <UniTaskUnityTarget Condition="'$(UniTaskBuildForEditor)' != 'true'">Player</UniTaskUnityTarget>
+    <BaseIntermediateOutputPath>obj/$(MSBuildProjectName)/$(UniTaskUnityTarget)/</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin/$(MSBuildProjectName)/$(UniTaskUnityTarget)/</BaseOutputPath>
+    <DefineConstants>$(DefineConstants);UNITY_$([System.String]::Copy('$(UnityVersion)').Replace('.', '_'));ENABLE_MANAGED_JOBS</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Only version symbols used by these sources are needed outside Unity. -->
+  <PropertyGroup>
+    <DefineConstants Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(UnityVersion)', '2017.2'))">$(DefineConstants);UNITY_2017_2_OR_NEWER</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(UnityVersion)', '2018.3'))">$(DefineConstants);UNITY_2018_3_OR_NEWER</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(UnityVersion)', '2019.1'))">$(DefineConstants);UNITY_2019_1_OR_NEWER</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(UnityVersion)', '2019.2'))">$(DefineConstants);UNITY_2019_2_OR_NEWER</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(UnityVersion)', '2019.3'))">$(DefineConstants);UNITY_2019_3_OR_NEWER</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(UnityVersion)', '2019.4'))">$(DefineConstants);UNITY_2019_4_OR_NEWER</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(UnityVersion)', '2020.1'))">$(DefineConstants);UNITY_2020_1_OR_NEWER</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(UnityVersion)', '2020.2'))">$(DefineConstants);UNITY_2020_2_OR_NEWER</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(UnityVersion)', '2022.2'))">$(DefineConstants);UNITY_2022_2_OR_NEWER</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(UnityVersion)', '2022.3'))">$(DefineConstants);UNITY_2022_3_OR_NEWER</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(UnityVersion)', '2023.1'))">$(DefineConstants);UNITY_2023_1_OR_NEWER</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(UnityVersion)', '2023.3'))">$(DefineConstants);UNITY_2023_3_OR_NEWER</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(UnityVersion)', '6000.2'))">$(DefineConstants);UNITY_6000_2_OR_NEWER</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(UnityVersion)', '2022.3')) and $([MSBuild]::VersionLessThan('$(UnityVersion)', '2022.4'))">$(DefineConstants);UNITY_2022_3</DefineConstants>
+    <DefineConstants Condition="'$(UniTaskBuildForEditor)' == 'true'">$(DefineConstants);UNITY_EDITOR</DefineConstants>
+    <DefineConstants Condition="Exists('$(UnityData)/Managed/UnityEngine/UnityEngine.AssetBundleModule.dll')">$(DefineConstants);UNITASK_ASSETBUNDLE_SUPPORT</DefineConstants>
+    <DefineConstants Condition="Exists('$(UnityData)/Managed/UnityEngine/UnityEngine.PhysicsModule.dll')">$(DefineConstants);UNITASK_PHYSICS_SUPPORT</DefineConstants>
+    <DefineConstants Condition="Exists('$(UnityData)/Managed/UnityEngine/UnityEngine.Physics2DModule.dll')">$(DefineConstants);UNITASK_PHYSICS2D_SUPPORT</DefineConstants>
+    <DefineConstants Condition="Exists('$(UnityData)/Managed/UnityEngine/UnityEngine.ParticleSystemModule.dll')">$(DefineConstants);UNITASK_PARTICLESYSTEM_SUPPORT</DefineConstants>
+    <DefineConstants Condition="Exists('$(UnityData)/Managed/UnityEngine/UnityEngine.UnityWebRequestModule.dll')">$(DefineConstants);ENABLE_UNITYWEBREQUEST;UNITASK_WEBREQUEST_SUPPORT</DefineConstants>
+    <DefineConstants Condition="Exists('$(UnityUGuiAssembly)')">$(DefineConstants);UNITASK_UGUI_SUPPORT</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="$(UnityData)/Managed/UnityEngine/UnityEngine*.dll" Private="false" />
+    <Reference Include="$(UnityUGuiAssembly)" Condition="Exists('$(UnityUGuiAssembly)')" Private="false" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UniTaskBuildForEditor)' == 'true'">
+    <Reference Include="$(UnityData)/Managed/UnityEditor.dll" Private="false" />
+    <Reference Include="$(UnityData)/Managed/UnityEngine/UnityEditor*.dll" Private="false" />
+  </ItemGroup>
+
+  <Target Name="ValidateUniTaskUnityReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(UnityData)/Managed/UnityEngine/UnityEngine.CoreModule.dll')"
+           Text="Set UnityData or UNITY_EDITOR_DATA to the Unity Editor Data directory (Contents on macOS). See BUILD-UNITY.md." />
+    <Error Condition="'$(UniTaskBuildForEditor)' == 'true' and !Exists('$(UnityData)/Managed/UnityEngine/UnityEditor.CoreModule.dll')"
+           Text="UnityData must contain UnityEditor reference assemblies for an Editor build." />
+    <Error Condition="'$(UnityUGuiAssembly)' != '' and !Exists('$(UnityUGuiAssembly)')"
+           Text="UnityUGuiAssembly must point to an existing UnityEngine.UI.dll from the target Unity project." />
+  </Target>
+</Project>

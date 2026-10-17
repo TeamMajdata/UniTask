@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>UniTask</AssemblyName>
+    <RootNamespace>Cysharp.Threading.Tasks</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="src/UniTask/Assets/Plugins/UniTask/Runtime/**/*.cs"
+             Exclude="src/UniTask/Assets/Plugins/UniTask/Runtime/Linq/**/*.cs;src/UniTask/Assets/Plugins/UniTask/Runtime/External/**/*.cs" />
+  </ItemGroup>
+</Project>

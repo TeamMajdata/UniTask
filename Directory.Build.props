@@ -24,4 +24,7 @@
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)LICENSE" />
   </ItemGroup>
+
+  <!-- Set output and restore paths before the SDK initializes them. -->
+  <Import Project="UniTask.Unity.props" Condition="'$(MSBuildProjectFullPath)' == '$(MSBuildThisFileDirectory)UniTask.csproj' or '$(MSBuildProjectFullPath)' == '$(MSBuildThisFileDirectory)UniTask.Editor.csproj'" />
 </Project>

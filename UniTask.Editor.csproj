@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>UniTask.Editor</AssemblyName>
+    <RootNamespace>Cysharp.Threading.Tasks.Editor</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="src/UniTask/Assets/Plugins/UniTask/Editor/**/*.cs" />
+    <ProjectReference Include="UniTask.csproj" />
+  </ItemGroup>
+
+  <Target Name="ValidateEditorBuild" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(UniTaskBuildForEditor)' != 'true'"
+           Text="UniTask.Editor requires UniTaskBuildForEditor=true. Build UniTask.csproj directly for a Player DLL." />
+  </Target>
+</Project>
