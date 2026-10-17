@@ -395,7 +395,7 @@ namespace Cysharp.Threading.Tasks
 
             public void OnCompleted(Action continuation)
             {
-                if(synchronizationContext is not null)
+                if(synchronizationContext != null)
                 {
                     synchronizationContext.Post(switchToCallback, continuation);
                 }
@@ -407,7 +407,7 @@ namespace Cysharp.Threading.Tasks
 
             public void UnsafeOnCompleted(Action continuation)
             {
-                if (synchronizationContext is not null)
+                if (synchronizationContext != null)
                 {
                     synchronizationContext.Post(switchToCallback, continuation);
                 }
