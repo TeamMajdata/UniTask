@@ -15,33 +15,34 @@ namespace NetCoreTests.Linq
         [Fact]
         public async Task TwoSource()
         {
-            var semaphore = new SemaphoreSlim(1, 1);
+            // Hand off to a specific source; a shared semaphore does not guarantee alternation.
+            using var aTurn = new SemaphoreSlim(1, 1);
+            using var bTurn = new SemaphoreSlim(0, 1);
 
             var a = UniTaskAsyncEnumerable.Create<string>(async (writer, _) =>
             {
                 await UniTask.SwitchToThreadPool();
 
-                await semaphore.WaitAsync();
+                await aTurn.WaitAsync();
                 await writer.YieldAsync("A1");
-                semaphore.Release();
+                bTurn.Release();
 
-                await semaphore.WaitAsync();
+                await aTurn.WaitAsync();
                 await writer.YieldAsync("A2");
-                semaphore.Release();
+                bTurn.Release();
             });
 
             var b = UniTaskAsyncEnumerable.Create<string>(async (writer, _) =>
             {
                 await UniTask.SwitchToThreadPool();
 
-                await semaphore.WaitAsync();
+                await bTurn.WaitAsync();
                 await writer.YieldAsync("B1");
                 await writer.YieldAsync("B2");
-                semaphore.Release();
+                aTurn.Release();
 
-                await semaphore.WaitAsync();
+                await bTurn.WaitAsync();
                 await writer.YieldAsync("B3");
-                semaphore.Release();
             });
 
             var result = await a.Merge(b).ToArrayAsync();
@@ -51,33 +52,34 @@ namespace NetCoreTests.Linq
         [Fact]
         public async Task ThreeSource()
         {
-            var semaphore = new SemaphoreSlim(0, 1);
+            // C starts the same explicit handoff sequence used by TwoSource.
+            using var aTurn = new SemaphoreSlim(0, 1);
+            using var bTurn = new SemaphoreSlim(0, 1);
 
             var a = UniTaskAsyncEnumerable.Create<string>(async (writer, _) =>
             {
                 await UniTask.SwitchToThreadPool();
 
-                await semaphore.WaitAsync();
+                await aTurn.WaitAsync();
                 await writer.YieldAsync("A1");
-                semaphore.Release();
+                bTurn.Release();
 
-                await semaphore.WaitAsync();
+                await aTurn.WaitAsync();
                 await writer.YieldAsync("A2");
-                semaphore.Release();
+                bTurn.Release();
             });
 
             var b = UniTaskAsyncEnumerable.Create<string>(async (writer, _) =>
             {
                 await UniTask.SwitchToThreadPool();
 
-                await semaphore.WaitAsync();
+                await bTurn.WaitAsync();
                 await writer.YieldAsync("B1");
                 await writer.YieldAsync("B2");
-                semaphore.Release();
+                aTurn.Release();
 
-                await semaphore.WaitAsync();
+                await bTurn.WaitAsync();
                 await writer.YieldAsync("B3");
-                semaphore.Release();
             });
 
             var c = UniTaskAsyncEnumerable.Create<string>(async (writer, _) =>
@@ -85,7 +87,7 @@ namespace NetCoreTests.Linq
                 await UniTask.SwitchToThreadPool();
 
                 await writer.YieldAsync("C1");
-                semaphore.Release();
+                aTurn.Release();
             });
 
             var result = await a.Merge(b, c).ToArrayAsync();
