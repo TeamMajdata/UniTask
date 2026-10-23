@@ -68,6 +68,62 @@ namespace Cysharp.Threading.Tasks
         }
 
         /// <summary>
+        /// Gets whether the task has completed, successfully, faulted or canceled.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsCompleted
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsCompleted();
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the task has completed successfully.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsCompletedSuccessfully
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsCompletedSuccessfully();
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the task has completed with an exception other than <see cref="OperationCanceledException"/>.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsFaulted
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsFaulted();
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the task has completed because it was canceled.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsCanceled
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsCanceled();
+            }
+        }
+
+        /// <summary>
         /// Gets where the code after an await of this task runs when the task is still pending.
         /// <see cref="UniTaskContinuationContext.CapturedContext"/> unless changed with <see cref="ConfigureAwait(UniTaskContinuationContext)"/>.
         /// </summary>
@@ -489,6 +545,62 @@ namespace Cysharp.Threading.Tasks
             get
             {
                 return (source == null) ? UniTaskStatus.Succeeded : source.GetStatus(token);
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the task has completed, successfully, faulted or canceled.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsCompleted
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsCompleted();
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the task has completed successfully.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsCompletedSuccessfully
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsCompletedSuccessfully();
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the task has completed with an exception other than <see cref="OperationCanceledException"/>.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsFaulted
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsFaulted();
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the task has completed because it was canceled.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsCanceled
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsCanceled();
             }
         }
 
