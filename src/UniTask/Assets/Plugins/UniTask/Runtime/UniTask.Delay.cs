@@ -33,14 +33,31 @@ namespace Cysharp.Threading.Tasks
             return new YieldAwaitable(timing);
         }
 
+        /// <summary>
+        /// Waits for the next <see cref="PlayerLoopTiming.Update"/>. Like the overloads without a token, the code after the await
+        /// always resumes on the main thread, whatever thread awaited.
+        /// </summary>
+        /// <param name="cancellationToken">Cancels the wait.</param>
+        /// <param name="cancelImmediately">Whether the task is canceled as soon as the token is, instead of at the next player loop.</param>
+        /// <returns>A task configured with <see cref="UniTaskContinuationContext.MainThread"/>.</returns>
         public static UniTask Yield(CancellationToken cancellationToken, bool cancelImmediately = false)
         {
-            return new UniTask(YieldPromise.Create(PlayerLoopTiming.Update, cancellationToken, cancelImmediately, out var token), token);
+            return Yield(PlayerLoopTiming.Update, cancellationToken, cancelImmediately);
         }
 
+        /// <summary>
+        /// Waits for the next <paramref name="timing"/>. Like the overloads without a token, the code after the await always
+        /// resumes on the main thread, whatever thread awaited.
+        /// </summary>
+        /// <param name="timing">The player loop timing to wait for.</param>
+        /// <param name="cancellationToken">Cancels the wait.</param>
+        /// <param name="cancelImmediately">Whether the task is canceled as soon as the token is, instead of at the next player loop.</param>
+        /// <returns>A task configured with <see cref="UniTaskContinuationContext.MainThread"/>.</returns>
         public static UniTask Yield(PlayerLoopTiming timing, CancellationToken cancellationToken, bool cancelImmediately = false)
         {
-            return new UniTask(YieldPromise.Create(timing, cancellationToken, cancelImmediately, out var token), token);
+            // The promise completes in the player loop, so resuming there runs inline instead of queueing back to the awaiting
+            // thread's context, which on the thread pool allocates a work item per yield.
+            return new UniTask(YieldPromise.Create(timing, cancellationToken, cancelImmediately, out var token), token, UniTaskContinuationContext.MainThread);
         }
 
         /// <summary>
