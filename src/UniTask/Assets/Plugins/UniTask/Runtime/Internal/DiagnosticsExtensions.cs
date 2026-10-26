@@ -222,7 +222,7 @@ namespace Cysharp.Threading.Tasks.Internal
             {
                 return true;
             }
-            else if (declareType.StartsWith("Cysharp.Threading.Tasks.AwaiterActions"))
+            else if (declareType.StartsWith("Cysharp.Threading.Tasks.Internal.ContinuationScheduler"))
             {
                 return true;
             }

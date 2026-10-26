@@ -6,6 +6,7 @@
 #endif
 
 using Cysharp.Threading.Tasks.CompilerServices;
+using Cysharp.Threading.Tasks.Internal;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -14,18 +15,6 @@ using System.Runtime.InteropServices;
 
 namespace Cysharp.Threading.Tasks
 {
-    internal static class AwaiterActions
-    {
-        internal static readonly Action<object> InvokeContinuationDelegate = Continuation;
-
-        [DebuggerHidden]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static void Continuation(object state)
-        {
-            ((Action)state).Invoke();
-        }
-    }
-
     /// <summary>
     /// Lightweight unity specified task-like object.
     /// </summary>
@@ -35,6 +24,7 @@ namespace Cysharp.Threading.Tasks
     {
         readonly IUniTaskSource source;
         readonly short token;
+        readonly UniTaskContinuationContext continuationContext;
 
         [DebuggerHidden]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -42,6 +32,28 @@ namespace Cysharp.Threading.Tasks
         {
             this.source = source;
             this.token = token;
+            this.continuationContext = UniTaskContinuationContext.CapturedContext;
+        }
+
+        /// <summary>
+        /// Creates a task over a source whose awaits resume in the given context.
+        /// </summary>
+        /// <param name="source">The source that completes the task, or <c>null</c> for a completed task.</param>
+        /// <param name="token">The token the source validates.</param>
+        /// <param name="continuationContext">Where the code after an await of this task runs when the task is still pending.</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="continuationContext"/> is not a defined value.</exception>
+        [DebuggerHidden]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public UniTask(IUniTaskSource source, short token, UniTaskContinuationContext continuationContext)
+        {
+            if ((uint)continuationContext > (uint)UniTaskContinuationContext.ThreadPool)
+            {
+                throw Error.ArgumentOutOfRange(nameof(continuationContext));
+            }
+
+            this.source = source;
+            this.token = token;
+            this.continuationContext = continuationContext;
         }
 
         public UniTaskStatus Status
@@ -55,6 +67,76 @@ namespace Cysharp.Threading.Tasks
             }
         }
 
+        /// <summary>
+        /// Gets whether the task has completed, successfully, faulted or canceled.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsCompleted
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsCompleted();
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the task has completed successfully.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsCompletedSuccessfully
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsCompletedSuccessfully();
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the task has completed with an exception other than <see cref="OperationCanceledException"/>.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsFaulted
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsFaulted();
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the task has completed because it was canceled.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsCanceled
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsCanceled();
+            }
+        }
+
+        /// <summary>
+        /// Gets where the code after an await of this task runs when the task is still pending.
+        /// <see cref="UniTaskContinuationContext.CapturedContext"/> unless changed with <see cref="ConfigureAwait(UniTaskContinuationContext)"/>.
+        /// </summary>
+        public UniTaskContinuationContext ContinuationContext
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return continuationContext;
+            }
+        }
+
         [DebuggerHidden]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Awaiter GetAwaiter()
@@ -63,14 +145,28 @@ namespace Cysharp.Threading.Tasks
         }
 
         /// <summary>
+        /// Returns this task with awaits resuming in the given context. Call it last, right before awaiting: tasks created from the
+        /// result by other operators or async methods resume in <see cref="UniTaskContinuationContext.CapturedContext"/> again.
+        /// </summary>
+        /// <param name="continuationContext">Where the code after an await of the returned task runs when the task is still pending.</param>
+        /// <returns>A task over the same source, with the given continuation context.</returns>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="continuationContext"/> is not a defined value.</exception>
+        [DebuggerHidden]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public UniTask ConfigureAwait(UniTaskContinuationContext continuationContext)
+        {
+            return new UniTask(source, token, continuationContext);
+        }
+
+        /// <summary>
         /// returns (bool IsCanceled) instead of throws OperationCanceledException.
         /// </summary>
         public UniTask<bool> SuppressCancellationThrow()
         {
             var status = Status;
-            if (status == UniTaskStatus.Succeeded) return CompletedTasks.False;
-            if (status == UniTaskStatus.Canceled) return CompletedTasks.True;
-            return new UniTask<bool>(new IsCanceledSource(source), token);
+            if (status == UniTaskStatus.Succeeded) return CompletedTasks.False.ConfigureAwait(continuationContext);
+            if (status == UniTaskStatus.Canceled) return CompletedTasks.True.ConfigureAwait(continuationContext);
+            return new UniTask<bool>(new IsCanceledSource(source), token, continuationContext);
         }
 
 #if SUPPORT_VALUETASK
@@ -108,26 +204,26 @@ namespace Cysharp.Threading.Tasks
             }
             else
             {
-                return new UniTask(new MemoizeSource(source), token);
+                return new UniTask(new MemoizeSource(source), token, continuationContext);
             }
         }
 
         public UniTask<AsyncUnit> AsAsyncUnitUniTask()
         {
-            if (this.source == null) return CompletedTasks.AsyncUnit;
+            if (this.source == null) return CompletedTasks.AsyncUnit.ConfigureAwait(this.continuationContext);
 
             var status = this.source.GetStatus(this.token);
             if (status.IsCompletedSuccessfully())
             {
                 this.source.GetResult(this.token);
-                return CompletedTasks.AsyncUnit;
+                return CompletedTasks.AsyncUnit.ConfigureAwait(this.continuationContext);
             }
             else if (this.source is IUniTaskSource<AsyncUnit> asyncUnitSource)
             {
-                return new UniTask<AsyncUnit>(asyncUnitSource, this.token);
+                return new UniTask<AsyncUnit>(asyncUnitSource, this.token, this.continuationContext);
             }
 
-            return new UniTask<AsyncUnit>(new AsyncUnitSource(this.source), this.token);
+            return new UniTask<AsyncUnit>(new AsyncUnitSource(this.source), this.token, this.continuationContext);
         }
 
         sealed class AsyncUnitSource : IUniTaskSource<AsyncUnit>
@@ -316,6 +412,11 @@ namespace Cysharp.Threading.Tasks
                 task.source.GetResult(task.token);
             }
 
+            /// <summary>
+            /// Schedules the continuation of an await. It resumes in the task's <see cref="UniTask.ContinuationContext"/>,
+            /// captured on the calling thread for <see cref="UniTaskContinuationContext.CapturedContext"/>.
+            /// </summary>
+            /// <param name="continuation">The code to run after the task completes.</param>
             [DebuggerHidden]
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void OnCompleted(Action continuation)
@@ -326,10 +427,15 @@ namespace Cysharp.Threading.Tasks
                 }
                 else
                 {
-                    task.source.OnCompleted(AwaiterActions.InvokeContinuationDelegate, continuation, task.token);
+                    ContinuationScheduler.OnCompleted(task.source, task.token, task.continuationContext, continuation);
                 }
             }
 
+            /// <summary>
+            /// Schedules the continuation of an await. It resumes in the task's <see cref="UniTask.ContinuationContext"/>,
+            /// captured on the calling thread for <see cref="UniTaskContinuationContext.CapturedContext"/>.
+            /// </summary>
+            /// <param name="continuation">The code to run after the task completes.</param>
             [DebuggerHidden]
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void UnsafeOnCompleted(Action continuation)
@@ -340,7 +446,7 @@ namespace Cysharp.Threading.Tasks
                 }
                 else
                 {
-                    task.source.OnCompleted(AwaiterActions.InvokeContinuationDelegate, continuation, task.token);
+                    ContinuationScheduler.OnCompleted(task.source, task.token, task.continuationContext, continuation);
                 }
             }
 
@@ -373,6 +479,7 @@ namespace Cysharp.Threading.Tasks
         readonly IUniTaskSource<T> source;
         readonly T result;
         readonly short token;
+        readonly UniTaskContinuationContext continuationContext;
 
         [DebuggerHidden]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -381,6 +488,7 @@ namespace Cysharp.Threading.Tasks
             this.source = default;
             this.token = default;
             this.result = result;
+            this.continuationContext = UniTaskContinuationContext.CapturedContext;
         }
 
         [DebuggerHidden]
@@ -390,6 +498,44 @@ namespace Cysharp.Threading.Tasks
             this.source = source;
             this.token = token;
             this.result = default;
+            this.continuationContext = UniTaskContinuationContext.CapturedContext;
+        }
+
+        /// <summary>
+        /// Creates a task over a source whose awaits resume in the given context.
+        /// </summary>
+        /// <param name="source">The source that completes the task.</param>
+        /// <param name="token">The token the source validates.</param>
+        /// <param name="continuationContext">Where the code after an await of this task runs when the task is still pending.</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="continuationContext"/> is not a defined value.</exception>
+        [DebuggerHidden]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public UniTask(IUniTaskSource<T> source, short token, UniTaskContinuationContext continuationContext)
+            : this(source, default, token, continuationContext)
+        {
+        }
+
+        /// <summary>
+        /// Creates a task from all of its fields.
+        /// </summary>
+        /// <param name="source">The source that completes the task, or <c>null</c> for a task completed with <paramref name="result"/>.</param>
+        /// <param name="result">The result of a completed task; ignored when <paramref name="source"/> is set.</param>
+        /// <param name="token">The token the source validates.</param>
+        /// <param name="continuationContext">Where the code after an await of this task runs when the task is still pending.</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="continuationContext"/> is not a defined value.</exception>
+        [DebuggerHidden]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        UniTask(IUniTaskSource<T> source, T result, short token, UniTaskContinuationContext continuationContext)
+        {
+            if ((uint)continuationContext > (uint)UniTaskContinuationContext.ThreadPool)
+            {
+                throw Error.ArgumentOutOfRange(nameof(continuationContext));
+            }
+
+            this.source = source;
+            this.token = token;
+            this.result = result;
+            this.continuationContext = continuationContext;
         }
 
         public UniTaskStatus Status
@@ -402,11 +548,95 @@ namespace Cysharp.Threading.Tasks
             }
         }
 
+        /// <summary>
+        /// Gets whether the task has completed, successfully, faulted or canceled.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsCompleted
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsCompleted();
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the task has completed successfully.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsCompletedSuccessfully
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsCompletedSuccessfully();
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the task has completed with an exception other than <see cref="OperationCanceledException"/>.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsFaulted
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsFaulted();
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the task has completed because it was canceled.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The source no longer belongs to this task, for example a pooled source after the task was awaited.</exception>
+        public bool IsCanceled
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Status.IsCanceled();
+            }
+        }
+
+        /// <summary>
+        /// Gets where the code after an await of this task runs when the task is still pending.
+        /// <see cref="UniTaskContinuationContext.CapturedContext"/> unless changed with <see cref="ConfigureAwait(UniTaskContinuationContext)"/>.
+        /// </summary>
+        public UniTaskContinuationContext ContinuationContext
+        {
+            [DebuggerHidden]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return continuationContext;
+            }
+        }
+
         [DebuggerHidden]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Awaiter GetAwaiter()
         {
             return new Awaiter(this);
+        }
+
+        /// <summary>
+        /// Returns this task with awaits resuming in the given context. Call it last, right before awaiting: tasks created from the
+        /// result by other operators or async methods resume in <see cref="UniTaskContinuationContext.CapturedContext"/> again.
+        /// </summary>
+        /// <param name="continuationContext">Where the code after an await of the returned task runs when the task is still pending.</param>
+        /// <returns>A task over the same source or result, with the given continuation context.</returns>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="continuationContext"/> is not a defined value.</exception>
+        [DebuggerHidden]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public UniTask<T> ConfigureAwait(UniTaskContinuationContext continuationContext)
+        {
+            return new UniTask<T>(source, result, token, continuationContext);
         }
 
         /// <summary>
@@ -420,23 +650,23 @@ namespace Cysharp.Threading.Tasks
             }
             else
             {
-                return new UniTask<T>(new MemoizeSource(source), token);
+                return new UniTask<T>(new MemoizeSource(source), token, continuationContext);
             }
         }
 
         public UniTask AsUniTask()
         {
-            if (this.source == null) return UniTask.CompletedTask;
+            if (this.source == null) return UniTask.CompletedTask.ConfigureAwait(this.continuationContext);
 
             var status = this.source.GetStatus(this.token);
             if (status.IsCompletedSuccessfully())
             {
                 this.source.GetResult(this.token);
-                return UniTask.CompletedTask;
+                return UniTask.CompletedTask.ConfigureAwait(this.continuationContext);
             }
 
             // Converting UniTask<T> -> UniTask is zero overhead.
-            return new UniTask(this.source, this.token);
+            return new UniTask(this.source, this.token, this.continuationContext);
         }
 
         public static implicit operator UniTask(UniTask<T> self)
@@ -469,10 +699,10 @@ namespace Cysharp.Threading.Tasks
         {
             if (source == null)
             {
-                return new UniTask<(bool IsCanceled, T Result)>((false, result));
+                return new UniTask<(bool IsCanceled, T Result)>((false, result)).ConfigureAwait(continuationContext);
             }
 
-            return new UniTask<(bool, T)>(new IsCanceledSource(source), token);
+            return new UniTask<(bool, T)>(new IsCanceledSource(source), token, continuationContext);
         }
 
         public override string ToString()
@@ -658,6 +888,11 @@ namespace Cysharp.Threading.Tasks
                 }
             }
 
+            /// <summary>
+            /// Schedules the continuation of an await. It resumes in the task's <see cref="UniTask{T}.ContinuationContext"/>,
+            /// captured on the calling thread for <see cref="UniTaskContinuationContext.CapturedContext"/>.
+            /// </summary>
+            /// <param name="continuation">The code to run after the task completes.</param>
             [DebuggerHidden]
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void OnCompleted(Action continuation)
@@ -669,10 +904,15 @@ namespace Cysharp.Threading.Tasks
                 }
                 else
                 {
-                    s.OnCompleted(AwaiterActions.InvokeContinuationDelegate, continuation, task.token);
+                    ContinuationScheduler.OnCompleted(s, task.token, task.continuationContext, continuation);
                 }
             }
 
+            /// <summary>
+            /// Schedules the continuation of an await. It resumes in the task's <see cref="UniTask{T}.ContinuationContext"/>,
+            /// captured on the calling thread for <see cref="UniTaskContinuationContext.CapturedContext"/>.
+            /// </summary>
+            /// <param name="continuation">The code to run after the task completes.</param>
             [DebuggerHidden]
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void UnsafeOnCompleted(Action continuation)
@@ -684,7 +924,7 @@ namespace Cysharp.Threading.Tasks
                 }
                 else
                 {
-                    s.OnCompleted(AwaiterActions.InvokeContinuationDelegate, continuation, task.token);
+                    ContinuationScheduler.OnCompleted(s, task.token, task.continuationContext, continuation);
                 }
             }
 
