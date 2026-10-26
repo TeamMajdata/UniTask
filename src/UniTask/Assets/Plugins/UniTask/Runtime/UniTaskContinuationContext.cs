@@ -8,6 +8,10 @@
     /// A task that has already completed when it is awaited continues synchronously on the awaiting thread whatever the value;
     /// use <c>UniTask.SwitchToMainThread</c> or <see cref="UniTask.SwitchToThreadPool"/> to always switch threads.
     /// The value only applies to awaits: callbacks registered with <c>SourceOnCompleted</c> still run on the thread that completes the task.
+    /// The tasks of the player loop waits (<c>UniTask.Yield</c>, <c>NextFrame</c>, <c>DelayFrame</c>, <c>Delay</c>, <c>WaitForSeconds</c>,
+    /// <c>WaitForEndOfFrame</c>, <c>WaitForFixedUpdate</c>, <c>WaitUntil</c>, <c>WaitWhile</c>, <c>WaitUntilCanceled</c> and
+    /// <c>WaitUntilValueChanged</c>) default to <see cref="MainThread"/>: they complete in the player loop, so their continuations run
+    /// inline there instead of being queued back to the thread pool.
     /// </remarks>
     public enum UniTaskContinuationContext : byte
     {
